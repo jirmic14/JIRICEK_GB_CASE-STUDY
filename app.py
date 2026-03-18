@@ -564,35 +564,10 @@ def render_section(title: str, folder: Path, state_key: str):
 
     st.session_state[state_key] = selected_index
 
-    nav1, nav2, nav3 = st.columns([1.2, 1.1, 1.2])
-
-    with nav1:
-        prev_disabled = st.session_state[state_key] == 1
-        if st.button(
-            "⬅ Predchádzajúca",
-            use_container_width=True,
-            key=f"prev_{state_key}",
-            disabled=prev_disabled,
-        ):
-            st.session_state[state_key] -= 1
-            st.rerun()
-
-    with nav2:
-        st.markdown(
-            f"<p style='text-align:center; font-weight:700; margin-top: 0.7rem;'>Otázka {st.session_state[state_key]} z {max_questions}</p>",
-            unsafe_allow_html=True,
-        )
-
-    with nav3:
-        next_disabled = st.session_state[state_key] == max_questions
-        if st.button(
-            "Nasledujúca ➡",
-            use_container_width=True,
-            key=f"next_{state_key}",
-            disabled=next_disabled,
-        ):
-            st.session_state[state_key] += 1
-            st.rerun()
+    st.markdown(
+        f"<p style='text-align:center; font-weight:700; margin-top: 0.7rem; margin-bottom: 1.2rem;'>Otázka {st.session_state[state_key]} z {max_questions}</p>",
+        unsafe_allow_html=True,
+    )
 
     st.divider()
 
