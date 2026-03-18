@@ -541,15 +541,7 @@ def render_section(title: str, folder: Path, state_key: str):
         current_index = max_questions
     st.session_state[state_key] = current_index
 
-    top_col1, top_col2 = st.columns([6, 1])
-
-    with top_col1:
-        st.markdown(f"<div class='section-title'>{title}</div>", unsafe_allow_html=True)
-
-    with top_col2:
-        if st.button("⬅ Späť", use_container_width=True, key=f"back_{state_key}"):
-            go_home()
-            st.rerun()
+    st.markdown(f"<div class='section-title'>{title}</div>", unsafe_allow_html=True)
 
     st.write("")
 
