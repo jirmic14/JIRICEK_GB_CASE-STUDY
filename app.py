@@ -506,7 +506,7 @@ def render_home():
             <div class="menu-card">
                 <h2>📋 Dotazník</h2>
                 <p><strong>Otázky 1–20</strong></p>
-                <p>Osobné odpovede, motivácia, ciele, knihy, spolupráca a ďalšie.</p>
+                <p>Osobné odpovede, motivácia, ciele, knihy a ďalšie.</p>
             </div>
             """,
             unsafe_allow_html=True,
