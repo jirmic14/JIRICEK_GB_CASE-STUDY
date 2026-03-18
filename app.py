@@ -350,8 +350,8 @@ def get_markdown_paths(folder: Path) -> list[Path]:
     return [Path(p) for p in get_markdown_files(str(folder))]
 
 @st.cache_data(show_spinner=False)
-def read_markdown_file(file_path_str: str, mtime: float) -> str:
-    """Načíta text markdown súboru s cache podľa času zmeny."""
+def read_markdown_file(file_path_str: str) -> str:
+    """Načíta text markdown súboru."""
     file_path = Path(file_path_str)
 
     if not file_path.exists():
@@ -798,7 +798,7 @@ def render_home():
 
 def render_section(title: str, folder: Path, state_key: str):
     """Vykreslenie sekcie Zadanie alebo Dotazník."""
-    files = get_markdown_files(folder)
+    files = get_markdown_paths(folder)
 
     if not files:
         st.error(f"V priečinku `{folder.name}` sa nenašli žiadne .md súbory.")
@@ -868,7 +868,7 @@ def render_section(title: str, folder: Path, state_key: str):
     st.divider()
 
     current_file = files[st.session_state[state_key] - 1]
-    content = read_markdown_file(str(current_file), current_file.stat().st_mtime)
+    content = read_markdown_file(str(md_file))
     render_markdown_safely(content)
 
 
