@@ -7,11 +7,14 @@ import re
 from io import BytesIO
 from pathlib import Path
 
+# Tieto importy zatiaľ nemusíš aktívne používať všade,
+# ale nechávam ich, keďže si ich chcel mať pripravené
 import base64
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+# ReportLab použijeme na export do PDF
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.pagesizes import A4
@@ -33,10 +36,10 @@ from reportlab.platypus import (
 # ============================
 
 st.set_page_config(
-    page_title="GymBeam Case Study Intern",
-    page_icon="💼",
-    layout="wide",
-    initial_sidebar_state="expanded",
+    page_title="GymBeam Case Study Intern",   # názov tabu
+    page_icon="💼",                           # ikona tabu
+    layout="wide",                            # široký layout
+    initial_sidebar_state="expanded",         # sidebar otvorený od začiatku
 )
 
 
@@ -44,15 +47,23 @@ st.set_page_config(
 # CESTY K SÚBOROM
 # ============================
 
+# Aktuálny priečinok, kde je app.py
 BASE_DIR = Path(__file__).parent
+
+# Priečinok so zadaniami
 CASE_STUDY_DIR = BASE_DIR / "1_zadanie"
+
+# Priečinok s dotazníkom
 QUESTIONNAIRE_DIR = BASE_DIR / "2_dotaznik"
+
+# Logo GymBeam
 LOGO_PATH = BASE_DIR / "logo.png"
 
 
 # ============================
 # VLASTNÉ CSS ŠTÝLY
 # ============================
+# Tu nastavujeme tmavý vzhľad, sidebar, buttony, kartičky a texty
 
 st.markdown(
     """
@@ -80,10 +91,12 @@ st.markdown(
             background: rgba(2, 8, 23, 0.95);
         }
 
+        /* Sidebar pozadie */
         section[data-testid="stSidebar"] {
             background: linear-gradient(180deg, #232533 0%, #2a2d3f 100%) !important;
         }
 
+        /* Sidebar buttony, link buttony a download buttony */
         section[data-testid="stSidebar"] .stButton > button,
         section[data-testid="stSidebar"] .stLinkButton > a,
         section[data-testid="stSidebar"] .stDownloadButton > button {
@@ -100,6 +113,7 @@ st.markdown(
             text-align: center !important;
         }
 
+        /* Hover efekt */
         section[data-testid="stSidebar"] .stButton > button:hover,
         section[data-testid="stSidebar"] .stLinkButton > a:hover,
         section[data-testid="stSidebar"] .stDownloadButton > button:hover {
@@ -108,12 +122,14 @@ st.markdown(
             box-shadow: 0 0 0 1px #ff4b4b inset;
         }
 
+        /* Link button centrovanie */
         section[data-testid="stSidebar"] .stLinkButton > a {
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
         }
 
+        /* Centrovaný blok v sidebare */
         .sidebar-center {
             width: 100%;
             text-align: center !important;
@@ -123,6 +139,15 @@ st.markdown(
             justify-content: center;
         }
 
+        .sidebar-subtitle {
+            text-align: center !important;
+            color: #b3b7c2;
+            font-size: 0.95rem;
+            margin-top: 0.15rem;
+            width: 100%;
+        }
+
+        /* Logo v sidebare */
         .sidebar-logo-wrap {
             display: flex;
             justify-content: center;
@@ -131,6 +156,7 @@ st.markdown(
             margin-bottom: 0.3rem;
         }
 
+        /* Hlavný nadpis na homepage */
         .hero-title {
             text-align: center;
             font-size: 3.4rem;
@@ -139,6 +165,7 @@ st.markdown(
             letter-spacing: 0.5px;
         }
 
+        /* Podnadpis na homepage */
         .hero-subtitle {
             text-align: center;
             color: #9ca3af;
@@ -146,6 +173,7 @@ st.markdown(
             font-size: 1.05rem;
         }
 
+        /* Karty Zadanie / Dotazník */
         .menu-card {
             border: 1px solid rgba(255,255,255,0.18);
             border-radius: 18px;
@@ -167,12 +195,14 @@ st.markdown(
             margin-bottom: 0.3rem;
         }
 
+        /* Nadpis sekcie */
         .section-title {
             font-size: 3rem;
             font-weight: 800;
             margin-bottom: 0.2rem;
         }
 
+        /* Jemná čiara v obsahu */
         .subtle-divider {
             height: 1px;
             width: 100%;
@@ -180,6 +210,7 @@ st.markdown(
             margin: 1rem 0 1rem 0;
         }
 
+        /* Renderované markdown nadpisy */
         .content-h1 {
             font-size: 2.5rem;
             font-weight: 800;
@@ -226,6 +257,7 @@ st.markdown(
             line-height: 1.6;
         }
 
+        /* Presné centrovanie mena v sidebare */
         .sidebar-name {
             text-align: center;
             font-size: 1.95rem;
@@ -243,6 +275,7 @@ st.markdown(
 # ============================
 # SESSION STATE
 # ============================
+# Ukladáme si aktuálnu stránku a pozíciu sliderov
 
 if "page" not in st.session_state:
     st.session_state.page = "home"
@@ -253,24 +286,15 @@ if "zadanie_index" not in st.session_state:
 if "dotaznik_index" not in st.session_state:
     st.session_state.dotaznik_index = 1
 
-# Pomocné slider stavy
-if "slider_zadanie" not in st.session_state:
-    st.session_state.slider_zadanie = 1
-
-if "slider_dotaznik" not in st.session_state:
-    st.session_state.slider_dotaznik = 1
-
 
 # ============================
-# NAVIGÁCIA
+# NAVIGAČNÉ FUNKCIE
 # ============================
 
 def reset_indices():
     """Reset indexov sliderov späť na 1."""
     st.session_state.zadanie_index = 1
     st.session_state.dotaznik_index = 1
-    st.session_state.slider_zadanie = 1
-    st.session_state.slider_dotaznik = 1
 
 
 def go_home():
@@ -282,43 +306,24 @@ def go_home():
 def go_zadanie():
     """Presun do sekcie Zadanie od otázky 1."""
     st.session_state.zadanie_index = 1
-    st.session_state.slider_zadanie = 1
     st.session_state.page = "zadanie"
 
 
 def go_dotaznik():
     """Presun do sekcie Dotazník od otázky 1."""
     st.session_state.dotaznik_index = 1
-    st.session_state.slider_dotaznik = 1
     st.session_state.page = "dotaznik"
-
-
-def prev_question(state_key: str, slider_key: str):
-    """Posun na predchádzajúcu otázku."""
-    current = st.session_state[state_key]
-    if current > 1:
-        new_value = current - 1
-        st.session_state[state_key] = new_value
-        st.session_state[slider_key] = new_value
-
-
-def next_question(state_key: str, slider_key: str, max_questions: int):
-    """Posun na nasledujúcu otázku."""
-    current = st.session_state[state_key]
-    if current < max_questions:
-        new_value = current + 1
-        st.session_state[state_key] = new_value
-        st.session_state[slider_key] = new_value
 
 
 # ============================
 # PRÁCA SO SÚBORMI
 # ============================
 
-@st.cache_data(show_spinner=False)
-def get_markdown_files_cached(folder_str: str) -> list[str]:
-    """Načíta všetky .md súbory a vráti zoznam ciest ako string."""
-    folder = Path(folder_str)
+def get_markdown_files(folder: Path) -> list[Path]:
+    """
+    Načíta všetky .md súbory z daného priečinka
+    a zoradí ich podľa čísla v názve.
+    """
     if not folder.exists():
         return []
 
@@ -334,36 +339,24 @@ def get_markdown_files_cached(folder_str: str) -> list[str]:
             except ValueError:
                 return 9999
 
-    sorted_files = sorted(files, key=sort_key)
-    return [str(f) for f in sorted_files]
-
-
-def get_markdown_files(folder: Path) -> list[Path]:
-    """Wrapper nad cache funkciou."""
-    return [Path(p) for p in get_markdown_files_cached(str(folder))]
-
-
-@st.cache_data(show_spinner=False)
-def read_markdown_file_cached(file_path_str: str, mtime: float) -> str:
-    """Načíta markdown súbor s cache podľa času zmeny."""
-    file_path = Path(file_path_str)
-    if not file_path.exists():
-        return f"# Súbor nebol nájdený\n\nChýba súbor: {file_path.name}"
-    return file_path.read_text(encoding="utf-8")
+    return sorted(files, key=sort_key)
 
 
 def read_markdown_file(file_path: Path) -> str:
     """Načíta text markdown súboru."""
     if not file_path.exists():
         return f"# Súbor nebol nájdený\n\nChýba súbor: {file_path.name}"
-    return read_markdown_file_cached(str(file_path), file_path.stat().st_mtime)
+    return file_path.read_text(encoding="utf-8")
 
 
 # ============================
 # VLASTNÝ RENDER MARKDOWNU
 # ============================
+# Tento renderer obchádza problémy, ktoré vznikali pri st.markdown
+# na niektorých komplikovanejších blokoch.
 
 def escape_html(text: str) -> str:
+    """Escapovanie HTML znakov."""
     return (
         text.replace("&", "&amp;")
         .replace("<", "&lt;")
@@ -372,6 +365,7 @@ def escape_html(text: str) -> str:
 
 
 def format_inline_markdown(text: str) -> str:
+    """Spracovanie inline markdown syntaxe."""
     text = escape_html(text)
     text = re.sub(r"\*\*(.*?)\*\*", r"<strong>\1</strong>", text)
     text = re.sub(r"\*(.*?)\*", r"<em>\1</em>", text)
@@ -452,6 +446,7 @@ def render_markdown_safely(content: str):
 # ============================
 
 def find_font_path() -> str | None:
+    """Nájde vhodný font na systéme."""
     possible_paths = [
         r"C:\Windows\Fonts\arial.ttf",
         r"C:\Windows\Fonts\Arial.ttf",
@@ -468,6 +463,7 @@ def find_font_path() -> str | None:
 
 
 def register_pdf_font() -> str:
+    """Zaregistruje unicode font pre PDF."""
     font_path = find_font_path()
     if font_path:
         try:
@@ -479,6 +475,7 @@ def register_pdf_font() -> str:
 
 
 def clean_inline_markdown_for_pdf(text: str) -> str:
+    """Vyčistí markdown syntax pred exportom do PDF."""
     text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
     text = re.sub(r"\*(.*?)\*", r"\1", text)
@@ -488,6 +485,7 @@ def clean_inline_markdown_for_pdf(text: str) -> str:
 
 
 def markdown_to_story(content: str, styles: dict) -> list:
+    """Prevod markdown obsahu do ReportLab story."""
     story = []
     lines = content.replace("\r\n", "\n").split("\n")
     bullet_buffer = []
@@ -543,15 +541,8 @@ def markdown_to_story(content: str, styles: dict) -> list:
     return story
 
 
-def get_content_signature(folder: Path) -> tuple:
-    """Podpis obsahu priečinka pre cache PDF."""
-    files = get_markdown_files(folder)
-    return tuple((f.name, f.stat().st_mtime) for f in files)
-
-
-@st.cache_data(show_spinner=False)
-def build_full_pdf_cached(case_signature: tuple, questionnaire_signature: tuple) -> bytes:
-    """Vygeneruje PDF a uloží ho do cache."""
+def build_full_pdf() -> bytes:
+    """Vygeneruje jedno spoločné PDF so zadaním a dotazníkom."""
     buffer = BytesIO()
     font_name = register_pdf_font()
 
@@ -643,7 +634,7 @@ def build_full_pdf_cached(case_signature: tuple, questionnaire_signature: tuple)
 
     story = []
     story.append(Paragraph("GYMBEAM CASE STUDY INTERN", custom_styles["title"]))
-    story.append(Paragraph("Michal Jiříček", custom_styles["subtitle"]))
+    story.append(Paragraph("Bc. Michal Jiříček", custom_styles["subtitle"]))
     story.append(Spacer(1, 10))
 
     story.append(Paragraph("ZADANIE", custom_styles["section"]))
@@ -673,13 +664,6 @@ def build_full_pdf_cached(case_signature: tuple, questionnaire_signature: tuple)
     return pdf
 
 
-def build_full_pdf() -> bytes:
-    """Wrapper nad cache PDF."""
-    case_signature = get_content_signature(CASE_STUDY_DIR)
-    questionnaire_signature = get_content_signature(QUESTIONNAIRE_DIR)
-    return build_full_pdf_cached(case_signature, questionnaire_signature)
-
-
 # ============================
 # SIDEBAR
 # ============================
@@ -687,6 +671,7 @@ def build_full_pdf() -> bytes:
 def render_sidebar():
     """Vykreslenie ľavého sidebaru."""
     with st.sidebar:
+        # Meno vycentrované
         st.markdown(
             """
             <div class='sidebar-center'>
@@ -698,14 +683,18 @@ def render_sidebar():
 
         st.divider()
 
+        # Navigačné buttony
         if st.button("HLAVNÉ MENU", use_container_width=True):
             go_home()
+            st.rerun()
 
         if st.button("ZADANIE", use_container_width=True):
             go_zadanie()
+            st.rerun()
 
         if st.button("DOTAZNÍK", use_container_width=True):
             go_dotaznik()
+            st.rerun()
 
         st.divider()
 
@@ -720,6 +709,7 @@ def render_sidebar():
 
         st.divider()
 
+        # Export
         st.markdown("<div class='sidebar-center'><strong>EXPORT</strong></div>", unsafe_allow_html=True)
         st.write("")
 
@@ -732,6 +722,7 @@ def render_sidebar():
             use_container_width=True,
         )
 
+        # Logo úplne dole pod exportom
         if LOGO_PATH.exists():
             st.markdown("<div class='sidebar-logo-wrap'>", unsafe_allow_html=True)
             st.image(str(LOGO_PATH), use_container_width=True)
@@ -766,6 +757,7 @@ def render_home():
         st.markdown("<div style='height: 22px;'></div>", unsafe_allow_html=True)
         if st.button("Otvoriť Zadanie", use_container_width=True, key="home_zadanie"):
             go_zadanie()
+            st.rerun()
 
     with col2:
         st.markdown(
@@ -781,13 +773,14 @@ def render_home():
         st.markdown("<div style='height: 22px;'></div>", unsafe_allow_html=True)
         if st.button("Otvoriť Dotazník", use_container_width=True, key="home_dotaznik"):
             go_dotaznik()
+            st.rerun()
 
 
 # ============================
 # SEKČNÁ STRÁNKA
 # ============================
 
-def render_section(title: str, folder: Path, state_key: str, slider_key: str):
+def render_section(title: str, folder: Path, state_key: str):
     """Vykreslenie sekcie Zadanie alebo Dotazník."""
     files = get_markdown_files(folder)
 
@@ -795,13 +788,17 @@ def render_section(title: str, folder: Path, state_key: str, slider_key: str):
         st.error(f"V priečinku `{folder.name}` sa nenašli žiadne .md súbory.")
         if st.button("Späť na hlavné menu"):
             go_home()
+            st.rerun()
         return
 
     max_questions = len(files)
 
-    # Synchronizácia slidera so session state
-    if st.session_state[slider_key] != st.session_state[state_key]:
-        st.session_state[slider_key] = st.session_state[state_key]
+    current_index = st.session_state[state_key]
+    if current_index < 1:
+        current_index = 1
+    if current_index > max_questions:
+        current_index = max_questions
+    st.session_state[state_key] = current_index
 
     top_col1, top_col2 = st.columns([6, 1])
 
@@ -811,6 +808,7 @@ def render_section(title: str, folder: Path, state_key: str, slider_key: str):
     with top_col2:
         if st.button("⬅ Späť", use_container_width=True, key=f"back_{state_key}"):
             go_home()
+            st.rerun()
 
     st.write("")
 
@@ -818,26 +816,25 @@ def render_section(title: str, folder: Path, state_key: str, slider_key: str):
         "Vyber otázku",
         min_value=1,
         max_value=max_questions,
-        value=st.session_state[slider_key],
+        value=st.session_state[state_key],
         step=1,
-        key=slider_key,
+        key=f"slider_{state_key}",
     )
 
-    # Slider prepíše aktívny index
     st.session_state[state_key] = selected_index
 
     nav1, nav2, nav3 = st.columns([1.2, 1.1, 1.2])
 
     with nav1:
         prev_disabled = st.session_state[state_key] == 1
-        st.button(
+        if st.button(
             "⬅ Predchádzajúca",
             use_container_width=True,
             key=f"prev_{state_key}",
             disabled=prev_disabled,
-            on_click=prev_question,
-            args=(state_key, slider_key),
-        )
+        ):
+            st.session_state[state_key] -= 1
+            st.rerun()
 
     with nav2:
         st.markdown(
@@ -847,14 +844,14 @@ def render_section(title: str, folder: Path, state_key: str, slider_key: str):
 
     with nav3:
         next_disabled = st.session_state[state_key] == max_questions
-        st.button(
+        if st.button(
             "Nasledujúca ➡",
             use_container_width=True,
             key=f"next_{state_key}",
             disabled=next_disabled,
-            on_click=next_question,
-            args=(state_key, slider_key, max_questions),
-        )
+        ):
+            st.session_state[state_key] += 1
+            st.rerun()
 
     st.divider()
 
@@ -872,6 +869,6 @@ render_sidebar()
 if st.session_state.page == "home":
     render_home()
 elif st.session_state.page == "zadanie":
-    render_section("Zadanie", CASE_STUDY_DIR, "zadanie_index", "slider_zadanie")
+    render_section("Zadanie", CASE_STUDY_DIR, "zadanie_index")
 elif st.session_state.page == "dotaznik":
-    render_section("Dotazník", QUESTIONNAIRE_DIR, "dotaznik_index", "slider_dotaznik")
+    render_section("Dotazník", QUESTIONNAIRE_DIR, "dotaznik_index")
