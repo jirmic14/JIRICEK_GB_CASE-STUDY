@@ -319,11 +319,14 @@ def go_dotaznik():
 # PRÁCA SO SÚBORMI
 # ============================
 
-def get_markdown_files(folder: Path) -> list[Path]:
+@st.cache_data(show_spinner=False)
+def get_markdown_files(folder_str: str) -> list[str]:
     """
     Načíta všetky .md súbory z daného priečinka
     a zoradí ich podľa čísla v názve.
     """
+    folder = Path(folder_str)
+
     if not folder.exists():
         return []
 
@@ -339,13 +342,21 @@ def get_markdown_files(folder: Path) -> list[Path]:
             except ValueError:
                 return 9999
 
-    return sorted(files, key=sort_key)
+    sorted_files = sorted(files, key=sort_key)
+    return [str(f) for f in sorted_files]
 
+def get_markdown_paths(folder: Path) -> list[Path]:
+    """Wrapper, ktorý vráti Path objekty."""
+    return [Path(p) for p in get_markdown_files(str(folder))]
 
-def read_markdown_file(file_path: Path) -> str:
-    """Načíta text markdown súboru."""
+@st.cache_data(show_spinner=False)
+def read_markdown_file(file_path_str: str, mtime: float) -> str:
+    """Načíta text markdown súboru s cache podľa času zmeny."""
+    file_path = Path(file_path_str)
+
     if not file_path.exists():
         return f"# Súbor nebol nájdený\n\nChýba súbor: {file_path.name}"
+
     return file_path.read_text(encoding="utf-8")
 
 
@@ -540,8 +551,13 @@ def markdown_to_story(content: str, styles: dict) -> list:
     flush_bullets()
     return story
 
+def get_content_signature(folder: Path) -> tuple:
+    """Podpis obsahu priečinka pre cache."""
+    files = get_markdown_paths(folder)
+    return tuple((f.name, f.stat().st_mtime) for f in files)
 
-def build_full_pdf() -> bytes:
+@st.cache_data(show_spinner=False)
+def build_full_pdf(case_signature: tuple, questionnaire_signature: tuple) -> bytes:
     """Vygeneruje jedno spoločné PDF so zadaním a dotazníkom."""
     buffer = BytesIO()
     font_name = register_pdf_font()
@@ -640,9 +656,9 @@ def build_full_pdf() -> bytes:
     story.append(Paragraph("ZADANIE", custom_styles["section"]))
     story.append(Spacer(1, 8))
 
-    zadanie_files = get_markdown_files(CASE_STUDY_DIR)
+    zadanie_files = get_markdown_paths(CASE_STUDY_DIR)
     for i, md_file in enumerate(zadanie_files):
-        content = read_markdown_file(md_file)
+        content = read_markdown_file(str(md_file), md_file.stat().st_mtime)
         story.extend(markdown_to_story(content, custom_styles))
         if i < len(zadanie_files) - 1:
             story.append(PageBreak())
@@ -652,9 +668,9 @@ def build_full_pdf() -> bytes:
     story.append(Paragraph("DOTAZNÍK", custom_styles["section"]))
     story.append(Spacer(1, 8))
 
-    dotaznik_files = get_markdown_files(QUESTIONNAIRE_DIR)
+    dotaznik_files = get_markdown_paths(QUESTIONNAIRE_DIR)
     for md_file in dotaznik_files:
-        content = read_markdown_file(md_file)
+        content = read_markdown_file(str(md_file), md_file.stat().st_mtime)
         story.extend(markdown_to_story(content, custom_styles))
         story.append(Spacer(1, 12))
 
@@ -686,15 +702,12 @@ def render_sidebar():
         # Navigačné buttony
         if st.button("HLAVNÉ MENU", use_container_width=True):
             go_home()
-            st.rerun()
 
         if st.button("ZADANIE", use_container_width=True):
             go_zadanie()
-            st.rerun()
 
         if st.button("DOTAZNÍK", use_container_width=True):
             go_dotaznik()
-            st.rerun()
 
         st.divider()
 
@@ -713,7 +726,11 @@ def render_sidebar():
         st.markdown("<div class='sidebar-center'><strong>EXPORT</strong></div>", unsafe_allow_html=True)
         st.write("")
 
-        pdf_bytes = build_full_pdf()
+        pdf_bytes = build_full_pdf(
+            get_content_signature(CASE_STUDY_DIR),
+            get_content_signature(QUESTIONNAIRE_DIR),
+        )
+
         st.download_button(
             label="STIAHNUŤ PDF",
             data=pdf_bytes,
@@ -773,7 +790,6 @@ def render_home():
         st.markdown("<div style='height: 22px;'></div>", unsafe_allow_html=True)
         if st.button("Otvoriť Dotazník", use_container_width=True, key="home_dotaznik"):
             go_dotaznik()
-            st.rerun()
 
 
 # ============================
@@ -788,7 +804,6 @@ def render_section(title: str, folder: Path, state_key: str):
         st.error(f"V priečinku `{folder.name}` sa nenašli žiadne .md súbory.")
         if st.button("Späť na hlavné menu"):
             go_home()
-            st.rerun()
         return
 
     max_questions = len(files)
@@ -808,7 +823,6 @@ def render_section(title: str, folder: Path, state_key: str):
     with top_col2:
         if st.button("⬅ Späť", use_container_width=True, key=f"back_{state_key}"):
             go_home()
-            st.rerun()
 
     st.write("")
 
@@ -834,7 +848,6 @@ def render_section(title: str, folder: Path, state_key: str):
             disabled=prev_disabled,
         ):
             st.session_state[state_key] -= 1
-            st.rerun()
 
     with nav2:
         st.markdown(
@@ -851,12 +864,11 @@ def render_section(title: str, folder: Path, state_key: str):
             disabled=next_disabled,
         ):
             st.session_state[state_key] += 1
-            st.rerun()
 
     st.divider()
 
     current_file = files[st.session_state[state_key] - 1]
-    content = read_markdown_file(current_file)
+    content = read_markdown_file(str(current_file), current_file.stat().st_mtime)
     render_markdown_safely(content)
 
 
