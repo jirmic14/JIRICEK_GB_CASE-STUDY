@@ -456,7 +456,7 @@ def render_sidebar():
         st.markdown("<div class='sidebar-center'><strong>ODKAZY</strong></div>", unsafe_allow_html=True)
         st.write("")
 
-        st.link_button("LINKEDLN", "http://www.linkedin.com/in/michal-jiricek", use_container_width=True)
+        st.link_button("LINKEDIN", "http://www.linkedin.com/in/michal-jiricek", use_container_width=True)
         st.link_button("GITHUB", "https://github.com/jirmic14", use_container_width=True)
         st.link_button("STREAMLIT", "https://share.streamlit.io/user/jirmic14", use_container_width=True)
         st.link_button("YOUTUBE", "https://www.youtube.com/@jiricekmichal", use_container_width=True)
