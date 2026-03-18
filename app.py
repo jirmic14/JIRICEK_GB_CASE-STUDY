@@ -4,7 +4,6 @@
 
 import os
 import re
-from io import BytesIO
 from pathlib import Path
 
 # Tieto importy zatiaľ nemusíš aktívne používať všade,
@@ -13,22 +12,6 @@ import base64
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-
-# ReportLab použijeme na export do PDF
-from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import (
-    ListFlowable,
-    ListItem,
-    PageBreak,
-    Paragraph,
-    SimpleDocTemplate,
-    Spacer,
-)
 
 
 # ============================
@@ -63,7 +46,6 @@ LOGO_PATH = BASE_DIR / "logo.png"
 # ============================
 # VLASTNÉ CSS ŠTÝLY
 # ============================
-# Tu nastavujeme tmavý vzhľad, sidebar, buttony, kartičky a texty
 
 st.markdown(
     """
@@ -96,10 +78,9 @@ st.markdown(
             background: linear-gradient(180deg, #232533 0%, #2a2d3f 100%) !important;
         }
 
-        /* Sidebar buttony, link buttony a download buttony */
+        /* Sidebar buttony a link buttony */
         section[data-testid="stSidebar"] .stButton > button,
-        section[data-testid="stSidebar"] .stLinkButton > a,
-        section[data-testid="stSidebar"] .stDownloadButton > button {
+        section[data-testid="stSidebar"] .stLinkButton > a {
             width: 100%;
             border-radius: 12px !important;
             text-transform: uppercase;
@@ -115,8 +96,7 @@ st.markdown(
 
         /* Hover efekt */
         section[data-testid="stSidebar"] .stButton > button:hover,
-        section[data-testid="stSidebar"] .stLinkButton > a:hover,
-        section[data-testid="stSidebar"] .stDownloadButton > button:hover {
+        section[data-testid="stSidebar"] .stLinkButton > a:hover {
             border-color: #ff4b4b !important;
             color: #ff4b4b !important;
             box-shadow: 0 0 0 1px #ff4b4b inset;
@@ -275,7 +255,6 @@ st.markdown(
 # ============================
 # SESSION STATE
 # ============================
-# Ukladáme si aktuálnu stránku a pozíciu sliderov
 
 if "page" not in st.session_state:
     st.session_state.page = "home"
@@ -352,8 +331,6 @@ def read_markdown_file(file_path: Path) -> str:
 # ============================
 # VLASTNÝ RENDER MARKDOWNU
 # ============================
-# Tento renderer obchádza problémy, ktoré vznikali pri st.markdown
-# na niektorých komplikovanejších blokoch.
 
 def escape_html(text: str) -> str:
     """Escapovanie HTML znakov."""
@@ -442,229 +419,6 @@ def render_markdown_safely(content: str):
 
 
 # ============================
-# PDF EXPORT
-# ============================
-
-def find_font_path() -> str | None:
-    """Nájde vhodný font na systéme."""
-    possible_paths = [
-        r"C:\Windows\Fonts\arial.ttf",
-        r"C:\Windows\Fonts\Arial.ttf",
-        r"C:\Windows\Fonts\calibri.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/dejavu/DejaVuSans.ttf",
-        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
-        "/Library/Fonts/Arial.ttf",
-    ]
-    for path in possible_paths:
-        if os.path.exists(path):
-            return path
-    return None
-
-
-def register_pdf_font() -> str:
-    """Zaregistruje unicode font pre PDF."""
-    font_path = find_font_path()
-    if font_path:
-        try:
-            pdfmetrics.registerFont(TTFont("CustomPDFUnicode", font_path))
-            return "CustomPDFUnicode"
-        except Exception:
-            pass
-    return "Helvetica"
-
-
-def clean_inline_markdown_for_pdf(text: str) -> str:
-    """Vyčistí markdown syntax pred exportom do PDF."""
-    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
-    text = re.sub(r"\*(.*?)\*", r"\1", text)
-    text = re.sub(r"`(.*?)`", r"\1", text)
-    text = re.sub(r"\[(.*?)\]\((.*?)\)", r"\1 (\2)", text)
-    return text
-
-
-def markdown_to_story(content: str, styles: dict) -> list:
-    """Prevod markdown obsahu do ReportLab story."""
-    story = []
-    lines = content.replace("\r\n", "\n").split("\n")
-    bullet_buffer = []
-
-    def flush_bullets():
-        nonlocal bullet_buffer, story
-        if bullet_buffer:
-            items = [
-                ListItem(Paragraph(clean_inline_markdown_for_pdf(item), styles["body"]))
-                for item in bullet_buffer
-            ]
-            story.append(ListFlowable(items, bulletType="bullet", leftIndent=18))
-            story.append(Spacer(1, 8))
-            bullet_buffer = []
-
-    for raw_line in lines:
-        line = raw_line.strip()
-
-        if not line:
-            flush_bullets()
-            story.append(Spacer(1, 8))
-            continue
-
-        if line == "---":
-            flush_bullets()
-            story.append(Spacer(1, 10))
-            continue
-
-        if line.startswith("- "):
-            bullet_buffer.append(line[2:].strip())
-            continue
-
-        flush_bullets()
-
-        if line.startswith("# "):
-            story.append(Paragraph(clean_inline_markdown_for_pdf(line[2:]), styles["h1"]))
-            story.append(Spacer(1, 12))
-        elif line.startswith("## "):
-            story.append(Paragraph(clean_inline_markdown_for_pdf(line[3:]), styles["h2"]))
-            story.append(Spacer(1, 8))
-        elif line.startswith("### "):
-            story.append(Paragraph(clean_inline_markdown_for_pdf(line[4:]), styles["h3"]))
-            story.append(Spacer(1, 6))
-        elif line.startswith("http://") or line.startswith("https://"):
-            url = clean_inline_markdown_for_pdf(line)
-            story.append(Paragraph(f'<link href="{url}">{url}</link>', styles["link"]))
-            story.append(Spacer(1, 6))
-        else:
-            story.append(Paragraph(clean_inline_markdown_for_pdf(line), styles["body"]))
-            story.append(Spacer(1, 6))
-
-    flush_bullets()
-    return story
-
-
-def build_full_pdf() -> bytes:
-    """Vygeneruje jedno spoločné PDF so zadaním a dotazníkom."""
-    buffer = BytesIO()
-    font_name = register_pdf_font()
-
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        leftMargin=42,
-        rightMargin=42,
-        topMargin=42,
-        bottomMargin=42,
-    )
-
-    styles = getSampleStyleSheet()
-    custom_styles = {
-        "title": ParagraphStyle(
-            "title",
-            parent=styles["Title"],
-            fontName=font_name,
-            fontSize=20,
-            leading=24,
-            alignment=TA_CENTER,
-            textColor=colors.black,
-            spaceAfter=10,
-        ),
-        "subtitle": ParagraphStyle(
-            "subtitle",
-            parent=styles["BodyText"],
-            fontName=font_name,
-            fontSize=11,
-            leading=14,
-            alignment=TA_CENTER,
-            textColor=colors.black,
-            spaceAfter=18,
-        ),
-        "section": ParagraphStyle(
-            "section",
-            parent=styles["Heading1"],
-            fontName=font_name,
-            fontSize=16,
-            leading=20,
-            alignment=TA_LEFT,
-            textColor=colors.black,
-            spaceAfter=14,
-        ),
-        "h1": ParagraphStyle(
-            "h1",
-            parent=styles["Heading1"],
-            fontName=font_name,
-            fontSize=14,
-            leading=18,
-            textColor=colors.black,
-            spaceAfter=8,
-        ),
-        "h2": ParagraphStyle(
-            "h2",
-            parent=styles["Heading2"],
-            fontName=font_name,
-            fontSize=12,
-            leading=16,
-            textColor=colors.black,
-            spaceAfter=6,
-        ),
-        "h3": ParagraphStyle(
-            "h3",
-            parent=styles["Heading3"],
-            fontName=font_name,
-            fontSize=11,
-            leading=14,
-            textColor=colors.black,
-            spaceAfter=4,
-        ),
-        "body": ParagraphStyle(
-            "body",
-            parent=styles["BodyText"],
-            fontName=font_name,
-            fontSize=10.5,
-            leading=15,
-            textColor=colors.black,
-        ),
-        "link": ParagraphStyle(
-            "link",
-            parent=styles["BodyText"],
-            fontName=font_name,
-            fontSize=10,
-            leading=14,
-            textColor=colors.blue,
-        ),
-    }
-
-    story = []
-    story.append(Paragraph("GYMBEAM CASE STUDY INTERN", custom_styles["title"]))
-    story.append(Paragraph("Bc. Michal Jiříček", custom_styles["subtitle"]))
-    story.append(Spacer(1, 10))
-
-    story.append(Paragraph("ZADANIE", custom_styles["section"]))
-    story.append(Spacer(1, 8))
-
-    zadanie_files = get_markdown_files(CASE_STUDY_DIR)
-    for i, md_file in enumerate(zadanie_files):
-        content = read_markdown_file(md_file)
-        story.extend(markdown_to_story(content, custom_styles))
-        if i < len(zadanie_files) - 1:
-            story.append(PageBreak())
-
-    story.append(PageBreak())
-
-    story.append(Paragraph("DOTAZNÍK", custom_styles["section"]))
-    story.append(Spacer(1, 8))
-
-    dotaznik_files = get_markdown_files(QUESTIONNAIRE_DIR)
-    for md_file in dotaznik_files:
-        content = read_markdown_file(md_file)
-        story.extend(markdown_to_story(content, custom_styles))
-        story.append(Spacer(1, 12))
-
-    doc.build(story)
-    pdf = buffer.getvalue()
-    buffer.close()
-    return pdf
-
-
-# ============================
 # SIDEBAR
 # ============================
 
@@ -707,23 +461,9 @@ def render_sidebar():
         st.link_button("STREAMLIT", "https://share.streamlit.io/user/jirmic14", use_container_width=True)
         st.link_button("YOUTUBE", "https://www.youtube.com/@jiricekmichal", use_container_width=True)
 
-
         st.divider()
 
-        # Export
-        st.markdown("<div class='sidebar-center'><strong>EXPORT</strong></div>", unsafe_allow_html=True)
-        st.write("")
-
-        pdf_bytes = build_full_pdf()
-        st.download_button(
-            label="STIAHNUŤ PDF",
-            data=pdf_bytes,
-            file_name="gymbeam_case_study_intern_michal_jiricek.pdf",
-            mime="application/pdf",
-            use_container_width=True,
-        )
-
-        # Logo úplne dole pod exportom
+        # Logo úplne dole
         if LOGO_PATH.exists():
             st.markdown("<div class='sidebar-logo-wrap'>", unsafe_allow_html=True)
             st.image(str(LOGO_PATH), use_container_width=True)
